@@ -10,8 +10,8 @@
 
 #define ledPort			PORTB
 #define ledDDR			DDRB
-#define led1			0
-#define led2            1
+#define led1			PORTB0
+#define led2            PORTB1
 
 #define buttonPort		PORTD
 #define buttonDDR		DDRD
@@ -21,7 +21,7 @@
 void initIO()
 {
 	//LED Setup
-	ledDDR = (1<<led1)|(1<<led2);	//Set ledPins DDR to Output
+	ledDDR = (1<<PORTB0)|(1<<PORTB1);	//Set ledPins DDR to Output
 	PORTB |= (1<<led1);			//initialize Led1 to Off
 	PORTB &= ~(1<<led2);		//initialize Led2 to Off
 	
