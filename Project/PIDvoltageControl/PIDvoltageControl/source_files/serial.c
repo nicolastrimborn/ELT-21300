@@ -19,7 +19,6 @@ void init_Uart(void) {
 	UCSR0B|=(1<<TXEN0)|(1<<RXEN0); //enable receiver and transmitter
 	UCSR0B|= (1<<RXCIE0); // enable receiver interrupt
 	USART_Flush();
-	sei();
 }
 void USART_putstring (char *str)
 {
@@ -35,6 +34,23 @@ void USART_send (unsigned char data)
 	UDR0 = data;
 	
 }
+
+void USART_WriteNum(uint8_t val)
+{
+	char buf[8];
+	uint8_t t = 0;
+
+	itoa(val, buf, 10);
+
+	while(buf[t] != '\0')
+	{
+		USART_send(buf[t]);
+		t++;
+	}
+	USART_putstring("\r\n");
+}
+
+
 // function to receive data
 unsigned char USART_recieve (void)
 {
