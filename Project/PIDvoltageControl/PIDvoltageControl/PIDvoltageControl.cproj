@@ -122,6 +122,9 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="header_files\adc.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="header_files\pid.h">
       <SubType>compile</SubType>
     </Compile>
@@ -129,6 +132,9 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="main.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="source_files\adc.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="source_files\pid.c">
