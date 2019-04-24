@@ -11,7 +11,7 @@
 #include <serial.h>
 #include <adc.h>
 #include <avr/io.h>
-#include <util/delay.h>#include <avr/interrupt.h>#include <stdio.h> #include <stdlib.h>#include <pid.h>volatile uint16_t ADC_Value = 0;
+#include <util/delay.h>#include <avr/interrupt.h>#include <stdio.h> #include <stdlib.h>#include <pid.h>#include "stdint.h"volatile uint16_t ADC_Value = 0;
 #define TABLESIZE 11
 #define TIMEINCR 4
 #define PWMTOP 255
@@ -43,12 +43,13 @@ static uint8_t int_count = 0;uint16_t adc_value;/* #########################
  uint8_t K_P = 1;
  uint8_t K_I = 0;
  uint8_t K_D = 0;
-//flags for status information
-struct GLOBAL_FLAGS {
+//flags for status information
+typedef struct GLOBAL_FLAGS {
 	//! True when PID control loop should run one time
-	uint8_t pidTimer : 1;
-	uint8_t dummy : 7;
-} gFlags = {0, 0};		uint16_t SetpointADCVal = 693;/*################################################  PID Parameters #############################################*///! Parameters for regulator
+	volatile uint8_t  pidTimer : 1;
+	volatile uint8_t dummy : 7;
+}GLOBAL_FLAGS; GLOBAL_FLAGS gFlags = {.pidTimer = 0, .dummy = 0};
+	uint16_t SetpointADCVal = 693;/*################################################  PID Parameters #############################################*///! Parameters for regulator
 struct PID_DATA pidData;
 /* Sampling Time Interval
  *
@@ -59,9 +60,9 @@ struct PID_DATA pidData;
 #define TIME_INTERVAL 157void init_PID(void){	//pid_Init(K_P * SCALING_FACTOR, K_I * SCALING_FACTOR, K_D * SCALING_FACTOR, &pidData);
 	pid_Init(K_P * SCALING_FACTOR, K_I * SCALING_FACTOR, K_D * SCALING_FACTOR, &pidData);
 	// Set up timer, enable timer/counter 0 overflow interrupt
-	TCCR2B |= (1 << CS21); // clock source to be used by the Timer/Counter clkI/O (8 Prescaler)
+	//TCCR2B |= (1 << CS21); // clock source to be used by the Timer/Counter clkI/O (8 Prescaler)
 	//TCCR2B |= (1 << CS20); // clock source to be used by the Timer/Counter clkI/O (No Prescaler)
-	//TCCR2B |= (1 << CS22)|(1 << CS21); // clock source to be used by the Timer/Counter clkI/O (256 Prescaler)
+	TCCR2B |= (1 << CS22)|(1 << CS21); // clock source to be used by the Timer/Counter clkI/O (256 Prescaler)
 	TIMSK2 = (1 << TOIE2); //TOIE2 – Timer/Counter2 Overflow Interrupt Enable
 	TCNT2  = 0;}/* brief Read reference value.
  * This function must return the reference value. May be constant or varying*/
@@ -111,7 +112,7 @@ void init_PWM()
 	TCCR0A |= (1<<COM0A1);	// clear IO pin on match, set at BOTTOM. none-inverting mode
 	TCCR0A |= (1<<WGM00) | (1<<WGM01);	// Fast PWM mode WGM[2:0] = 0b011, TOP=0xFF
 	DDRD |= (1<<PD6);		// enable output buffer of PIN 6 on port D
-	OCR0A = table[0];	// initial value for signal
+	OCR0A = table[6];	// initial value for signal
 	//OCR0A = table[TABLESIZE/2];	// initial value for signal
 }
 
@@ -127,7 +128,7 @@ void menuHander(unsigned char command) {
 			break;
 		case 50:
 			USART_putstring("2 is pressed \r\n");
-			USART_WriteNum(edgeCounter);
+			//USART_WriteNum(edgeCounter);
 			break;
 		case 51:
 			USART_putstring("3 is pressed \r\n");
@@ -218,7 +219,7 @@ ISR( ADC_vect )
 
 ISR(TIMER0_OVF_vect)
 {
-	static uint16_t i = 0;
+	//static uint16_t i = 0;
 	//USART_putstring("Timer 1.. running");
 //   	if(int_count++ >= TIMEINCR) {		// update signal every TIMEINCR cycle
 //   		OCR0A = table[table_index++];
@@ -248,7 +249,10 @@ ISR(TIMER2_OVF_vect)
 	} else {
 		//USART_putstring("Timer 2 running");
 		//USART_putstring("\r\n");
-		gFlags.pidTimer = TRUE;
+		USART_putstring("Gflags value: ");
+		USART_WriteNum(gFlags.pidTimer);
+		USART_putstring("\r\n");
+		gFlags.pidTimer = 1;
 		i               = 0;
 	}
 }
@@ -282,28 +286,27 @@ int main(void)
 	init_PID();
 	sei();
     while (1) {
-		if (gFlags.pidTimer == TRUE) {
+		
+		if (gFlags.pidTimer == 1) {
 			USART_putstring("in pid handler\r\n");
 			referenceValue   = Get_Reference();
 			measurementValue = Get_Measurement();
 			inputValue = pid_Controller(referenceValue, measurementValue, &pidData);
 			Set_Input(inputValue);
-			gFlags.pidTimer = FALSE;
+			gFlags.pidTimer = 0;
 		}
-		//USART_putstring("not in pid handler\r\n");
-		//potval=ReadADC(0);
-		//USART_WriteNum(ADC_Value);
-		//USART_WriteNum(table_index);
-		//ReadADC(0);
-		//printf("Vbg = %4.2fV\n", vbg);
-		//_delay_ms(500);
-		//printADChannel(0);              
-		//printADCInterupt(ADC_Value);
-		//_delay_ms(200);    			  
-					  //This two lines are to tell to the terminal to change line             //You can tweak this value to have slower or faster readings or for max speed remove this line
-		
 	}
 }
 
-
+//USART_putstring("not in pid handler\r\n");
+//potval=ReadADC(0);
+//USART_WriteNum(ADC_Value);
+//USART_WriteNum(table_index);
+//ReadADC(0);
+//printf("Vbg = %4.2fV\n", vbg);
+//_delay_ms(500);
+//printADChannel(0);
+//printADCInterupt(ADC_Value);
+//_delay_ms(200);
+//This two lines are to tell to the terminal to change line             //You can tweak this value to have slower or faster readings or for max speed remove this line
 
