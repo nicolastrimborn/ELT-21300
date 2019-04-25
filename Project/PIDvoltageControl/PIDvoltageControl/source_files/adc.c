@@ -25,7 +25,7 @@ void init_ACD(void) {
 /* single conversion settings*/
 void init_ACD(void) {
 	  ADCSRA |= ((1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0));    //16Mhz/128 = 125Khz the ADC reference clock
-	  ADMUX |= (1<<REFS0);                //Voltage reference from Avcc (5v)
+	  ADMUX |= (1<<REFS0);                //Voltage 4 from Avcc (5v)
 	  ADCSRA |= (1<<ADEN);                //Turn on ADC
 	  ADCSRA |= (1<<ADSC);                //Do an initial conversion because this one is the slowest and to ensure that everything is up and running
 }
