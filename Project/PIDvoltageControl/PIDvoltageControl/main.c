@@ -19,33 +19,29 @@
 #define TRUE 1
 
 // variables used only in the interrupt service routine
-volatile uint16_t ADC_Value = 0;
+volatile uint16_t ADC_Value;
 volatile uint8_t dPortInput;		// read contents of the D port
-volatile uint16_t edgeCounter = 0;	// count of the rising edges of the signal in D0
 
 uint8_t d0Input = 0;		// state of D2
 uint8_t previousState = 0;	// previous state of D2
 uint8_t pause=FALSE;
 
-
 // PWM output signal is a ramp 0 - 100 DutyC
 uint8_t table[TABLESIZE] = {0,10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
 uint8_t pwmTable[TABLESIZE] = {0,25, 51, 77, 102, 128, 153, 179, 204, 239, 255};
-//const uint8_t SP[6] = {0,1,2,3,4,5};
-const uint16_t SP_ADC_VAL[6] = {13,210,410,607,807,1001};		
+	
+uint8_t SP_index = 0;	
+//uint8_t SP[6] = {0,1,2,3,4,5};
+const uint16_t SP_ADC_VAL[6] = {13,210,410,607,807,1001};
+
+		
 uint8_t table_index = 0;
 
 // for counting interrupts
-static uint8_t int_count = 0;uint16_t adc_value;/* ##############################################  PID Parameters #############################################*/  /*P, I and D parameter values
- * The K_P, K_I and K_D values (P, I and D gains)
- * need to be modified to adapt to the application at hand */
- //#define K_P 0.8
- //#define K_I 0.00
- //#define K_D 0.00
- 
- //* Good values Kp = 0.3 Ki=0.1 Kd = 0
- volatile float K_P = 0.1;
- volatile float K_I = 0.0;
+static uint8_t int_count = 0;uint16_t adc_value;/* ##############################################  PID Parameters #############################################*/  /*P, I and D parameter values */
+//* Good values Kp = 0.3 Ki=0.1 Kd = 0
+ volatile float K_P = 0.3;
+ volatile float K_I = 0.1;
  volatile float K_D = 0.0;
  
 //flags for status information
@@ -61,12 +57,12 @@ struct PID_DATA pidData;
  * Specify the desired PID sample time interval
  * With a 8-bit counter (255 cylces to overflow), the time interval value is calculated as follows:
  * TIME_INTERVAL = ( desired interval [sec] ) * ( frequency [Hz] ) / 255 */
- #define TIME_INTERVAL 32
+ #define TIME_INTERVAL 127
  
  volatile uint16_t SetpointADCVal;
  volatile uint16_t paused_SetpointADCVal;
  
-/*################################################  PID Parameters #############################################*/void init_PID(void){	SetpointADCVal = SP_ADC_VAL[3];	//pid_Init(K_P * SCALING_FACTOR, K_I * SCALING_FACTOR, K_D * SCALING_FACTOR, &pidData);
+/*################################################  PID Parameters #############################################*/void init_PID(void){	SetpointADCVal = SP_ADC_VAL[3];	SP_index = 3;	//pid_Init(K_P * SCALING_FACTOR, K_I * SCALING_FACTOR, K_D * SCALING_FACTOR, &pidData);
 	pid_Init(K_P * SCALING_FACTOR, K_I * SCALING_FACTOR, K_D * SCALING_FACTOR, &pidData);
 	// Set up timer, enable timer/counter 0 overflow interrupt
 	//TCCR2B |= (1 << CS21); // clock source to be used by the Timer/Counter clkI/O (8 Prescaler)
@@ -88,7 +84,7 @@ int16_t Get_Measurement(void)
 }/* Set control input to system
  * Set the output from the controller as input to system. */void Set_Input(int16_t inputValue)
 {
-	char buf[80];
+	
 	if((int32_t)OCR0A + inputValue > 255) {
 		OCR0A = 255;
 	} else if ((int32_t)OCR0A + inputValue < 0) {
@@ -96,10 +92,17 @@ int16_t Get_Measurement(void)
 	} else {
 		OCR0A = OCR0A + inputValue;
 	}
-	
-	sprintf(buf,"ctrlVal: %04d PwmVal: %04d SPADCVal: %04d  Curr ADC: %04d Kp= %2.1f Ki= %1.1f Kd= %2.1f \r\n",inputValue, OCR0A, SetpointADCVal, ReadADC(0), K_P, K_I, K_D);
+	char buf[80];
+	sprintf(buf,"SP: %01dV ctrlVal: %04d PwmVal: %04d SPADCVal: %04d  Curr ADC: %04d Kp= %2.1f Ki= %1.1f Kd= %2.1f \r\n",
+			SP_index,inputValue, OCR0A, SetpointADCVal, ReadADC(0), K_P, K_I, K_D);
+	//sprintf(buf,"SP: %02d ctrlVal: %04d PwmVal: %04d SPADCVal: %04d  Curr ADC: %04d Kp= %2.1f Ki= %1.1f Kd= %2.1f \r\n",
+	//SP[SP_index], inputValue, OCR0A, SetpointADCVal, ReadADC(0), K_P, K_I, K_D);
 	USART_putstring(buf);
-}void init_IO(void) {
+	
+}void printValues() {	//char buf[80];	//sprintf(buf,"PwmVal: %04d SP_ADCVal: %04d Curr ADC: %04d Kp= %1.1f Ki= %1.1f Kd= %2.1f \r\n",
+			//OCR0A, SetpointADCVal, ReadADC(0), K_P, K_I, K_D);	
+	//USART_putstring(buf);	//sprintf(buf,"ctrlVal: %04d PwmVal: %04d SPADCVal: %04d  Curr ADC: %04d Kp= %2.1f Ki= %1.1f Kd= %2.1f \r\n",
+	//inputValue, OCR0A, SetpointADCVal, ReadADC(0), K_P, K_I, K_D);}void init_IO(void) {
 	DIDR0 |= (1 <<ADC0D);  // Disable digital input buffer on utilized ADC Pins.  Reduce Power Consumption
 	PORTC |= (1 <<PORTC0); //Write 1 to corresponding output pin
 	PRR &= ~(1 << PRTIM0); // Disable Timer0 Power Reduction
@@ -127,7 +130,7 @@ void init_PWM()
 	TCCR0A |= (1<<COM0A1);	// clear IO pin on match, set at BOTTOM. none-inverting mode
 	TCCR0A |= (1<<WGM00) | (1<<WGM01);	// Fast PWM mode WGM[2:0] = 0b011, TOP=0xFF
 	DDRD |= (1<<PD6);		// enable output buffer of PIN 6 on port D
-	OCR0A = table[6];	// initial value for signal
+	//OCR0A = table[6];	// initial value for signal
 }
 
 void buttonHandler(void) {
@@ -178,6 +181,7 @@ ISR(TIMER2_OVF_vect)
 	} else {
 		gFlags.pidTimer = 1;
 		i               = 0;
+		//printValues();
 	}
 }
 
@@ -189,10 +193,6 @@ ISR(PCINT2_vect)							// Pin change interrupt flag register PCIFR (0x3b)
 		// action
 		buttonHandler();
 		dPortInput = PIND;					// read port D to the buffer variable
-		edgeCounter++;
-		
-		//USART_WriteNum(edgeCounter);
-								// count rising edges
 	}
 	previousState=d0Input;
 }
@@ -205,31 +205,37 @@ void menuHander(unsigned char command) {
 			USART_putstring("0 is pressed \r\n");
 			USART_putstring("SP: 0V");
 			SetpointADCVal = SP_ADC_VAL[0];
+			SP_index = 0;
 			break;
 		case 49:
 			USART_putstring("1 is pressed \r\n");
 			USART_putstring("SP: 1V");
 			SetpointADCVal = SP_ADC_VAL[1];
+			SP_index = 1;
 			break;
 		case 50:
 			USART_putstring("2 is pressed \r\n");
 			USART_putstring("SP: 2V");
 			SetpointADCVal = SP_ADC_VAL[2];
+			SP_index = 2;
 			break;
 		case 51:
 			USART_putstring("3 is pressed \r\n");
 			USART_putstring("SP: 3V");
 			SetpointADCVal = SP_ADC_VAL[3];
+			SP_index = 3;
 			break;
 		case 52:
 			USART_putstring("4 is pressed \r\n");
 			USART_putstring("SP: 4V");
 			SetpointADCVal = SP_ADC_VAL[4];
+			SP_index = 4;
 			break;
 		case 53:
 			USART_putstring("5 is pressed \r\n");
 			USART_putstring("SP: 5V");
 			SetpointADCVal = SP_ADC_VAL[5];
+			SP_index = 5;
 			break;
 		case 54:
 			USART_putstring("6 is pressed \r\n");
@@ -283,7 +289,7 @@ void menuHander(unsigned char command) {
 		case 65:
 			USART_putstring("A is pressed \r\n");
 			USART_putstring("PWM DC%: ");
-			
+			break;
 		default:
 			USART_putstring(command);
 			USART_putstring(" command not understood \r\n");
@@ -310,16 +316,3 @@ int main(void)
 		}
 	}
 }
-
-//USART_putstring("not in pid handler\r\n");
-//potval=ReadADC(0);
-//USART_WriteNum(ADC_Value);
-//USART_WriteNum(table_index);
-//ReadADC(0);
-//printf("Vbg = %4.2fV\n", vbg);
-//_delay_ms(500);
-//printADChannel(0);
-//printADCInterupt(ADC_Value);
-//_delay_ms(200);
-//This two lines are to tell to the terminal to change line             //You can tweak this value to have slower or faster readings or for max speed remove this line
-
